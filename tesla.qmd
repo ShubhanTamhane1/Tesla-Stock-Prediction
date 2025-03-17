@@ -1,0 +1,95 @@
+---
+title: "Untitled"
+format: html
+---
+
+```{python}
+import pandas as pd
+import numpy as np 
+import seaborn as sns 
+import matplotlib.pyplot as plt
+```
+
+```{python}
+data = pd.read_csv("/Users/shubhantamhane/Downloads/TESLA.csv")
+```
+
+```{python}
+print(data.head(5))
+```
+
+```{python}
+data.columns = data.columns.str.lower()
+print(data.columns)
+```
+
+```{python}
+data['date'] = pd.to_datetime(data['date'])
+```
+
+```{python}
+length = data['date'].max() - data['date'].min()
+print(length)
+```
+
+```{python}
+print(data.isna().sum())
+```
+
+```{python}
+data['up'] = ((data['close'] - data['open']) > 0).astype(int)
+print(data.head(5))
+```
+
+```{python}
+data['EMA12'] = data['close'].ewm(span=12, adjust=False).mean()
+data['EMA26'] = data['close'].ewm(span = 26, adjust=False).mean()
+
+data['MACD'] = data['EMA12'] - data['EMA26']
+
+data['signal_line'] = data['MACD'].ewm(span = 9, adjust=False).mean()
+
+data['MACD_hist'] = data['MACD'] - data['signal_line']
+
+print(data.columns)
+```
+
+```{python}
+print(data[['close', 'MACD', 'signal_line', 'MACD_hist']].tail())
+```
+
+```{python}
+data['SMA'] = data['close'].rolling(window = 20).mean()
+
+data['std'] = data['close'].rolling(window = 20).std()
+
+data['upper_band'] = data['SMA'] + 2*data['std']
+data['lower_band'] = data['SMA'] - 2*data['std']
+
+print(data.columns)
+```
+
+```{python}
+plt.figure(figsize=(12,6))
+plt.plot(data.index, data['close'], label = 'Close Price')
+
+plt.plot(data.index, data['SMA'], label = 'SMA (20)', color = 'black')
+
+plt.plot(data.index, data['upper_band'], label = 'Upper Band', color = 'red')
+
+plt.plot(data.index, data['lower_band'], label = 'Lower Band', color = 'green')
+
+plt.fill_between(data.index, data['lower_band'], data['upper_band'], color = 'gray', alpha = 0.1)
+
+plt.title("Bollinger Bands")
+plt.legend()
+plt.show()
+```
+
+```{python}
+data['bandwidth'] = (data['upper_band']-data['lower_band'])/data['SMA']
+```
+
+```{python}
+data['50day'] = data['close']
+```
