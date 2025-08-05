@@ -1,8 +1,21 @@
 ---
-title: "Untitled"
-format: html
----
-
+title: "Final Project"
+author: "Shubhan Tamhane"
+toc: true
+number-sections: true
+highlight-style: pygments
+format: 
+  html: 
+    code-fold: true
+    html-math-method: katex
+    embed-resources: true
+    self-contained-math: true	
+  pdf: 
+    geometry: 
+      - top=30mm
+      - left=20mm
+##  docx: Never, unless to accommodate a collaborator
+--- 
 ```{python}
 import pandas as pd
 import numpy as np 
@@ -12,6 +25,7 @@ import matplotlib.pyplot as plt
 
 ```{python}
 data = pd.read_csv("/Users/shubhantamhane/Downloads/TESLA.csv")
+print(len(data))
 ```
 
 ```{python}
@@ -19,7 +33,7 @@ print(data.head(5))
 ```
 
 ```{python}
-data.columns = data.columns.str.lower()
+data.columns = data.columns.str.lower().str.replace(" ", "_")
 print(data.columns)
 ```
 
@@ -39,8 +53,10 @@ print(data.isna().sum())
 ```{python}
 data['up'] = ((data['close'] - data['open']) > 0).astype(int)
 print(data.head(5))
+print(len(data))
 ```
 
+MACD Hist
 ```{python}
 data['EMA12'] = data['close'].ewm(span=12, adjust=False).mean()
 data['EMA26'] = data['close'].ewm(span = 26, adjust=False).mean()
@@ -54,10 +70,23 @@ data['MACD_hist'] = data['MACD'] - data['signal_line']
 print(data.columns)
 ```
 
+Code for visualizing MACD Hist
 ```{python}
-print(data[['close', 'MACD', 'signal_line', 'MACD_hist']].tail())
+plt.figure(figsize=(14, 7))
+plt.plot(data.index, data['MACD'], label='MACD', color='blue')
+plt.plot(data.index, data['signal_line'], label='Signal Line', color='red')
+
+plt.bar(data.index, data['MACD_hist'], label='MACD Histogram', color='gray', alpha=0.5)
+
+plt.title('MACD Indicator')
+plt.xlabel('Date')
+plt.ylabel('Value')
+plt.legend()
+plt.grid(True)
+plt.show()
 ```
 
+Bollinger Bands
 ```{python}
 data['SMA'] = data['close'].rolling(window = 20).mean()
 
@@ -69,6 +98,7 @@ data['lower_band'] = data['SMA'] - 2*data['std']
 print(data.columns)
 ```
 
+Code for visualizing Bollinger Bands
 ```{python}
 plt.figure(figsize=(12,6))
 plt.plot(data.index, data['close'], label = 'Close Price')
@@ -86,10 +116,367 @@ plt.legend()
 plt.show()
 ```
 
+Feature engineering for Bollinger Bands
 ```{python}
 data['bandwidth'] = (data['upper_band']-data['lower_band'])/data['SMA']
 ```
 
+Code for 10 and 50 day moving averages
 ```{python}
-data['50day'] = data['close']
+data['10day'] = data['close'].rolling(window = 10).mean()
+data['50day'] = data['close'].rolling(window = 50).mean()
+```
+
+Heatmap to see correlations with target variable
+```{python}
+features = data[['MACD_hist', 'bandwidth', '10day', 'up']]
+
+plt.figure(figsize = (12,6))
+sns.heatmap(features.corr(numeric_only=True), annot=True)
+plt.show()
+```
+
+H0: Mean macd_hist is the same on days the Tesla stock is up or down 
+HA: Mean macd_hist is different on days the Tesla stock is up or down
+
+```{python}
+from scipy.stats import ttest_ind
+up_macd = data[data['up']==1]['MACD_hist']
+down_macd = data[data['up']==0]['MACD_hist']
+
+test_stat, p_value = ttest_ind(up_macd, down_macd, equal_var=False)
+print(p_value)
+
+```
+
+Since we get a p-valye of 0.07, we can reject the null hypothesis at the 10% significance level. Therefore, we can conclude that the mean macd_hist value is different on days that the Tesla stock is down or up, which can potentially have high predictive power. 
+
+
+```{python}
+print(data[['close', 'MACD', 'signal_line', 'MACD_hist']].tail())
+```
+
+
+
+H0: bandwidth is the same for days that the Tesla stock is up or down
+HA: bandwidth is different for days that the Tesla stock is up or down
+
+```{python}
+up_bandwidth = data[data['up'] == 1]['bandwidth'].dropna()
+down_bandwidth = data[data['up'] == 0]['bandwidth'].dropna()
+t, p_value_bandwidth = ttest_ind(up_bandwidth, down_bandwidth, equal_var=False)
+print(p_value_bandwidth)
+```
+
+Since the p-value is very high and not less than the significance value of 0.1, we fail to reject H0. Therefore, we cannot conclude that the bandwidth is different for days that the Tesla stock is up or down. 
+
+
+
+H0: Not a statistically significant relationship between cross and up
+HA: Statistically significant relationship between cross and up exists
+
+```{python}
+from scipy.stats import chi2_contingency
+data['cross'] = (data['10day'] > data['50day']).astype(int)
+
+cont_table_cross = pd.crosstab(data['cross'], data['up'])
+
+stat, p_value_cross, dof_cross, exp = chi2_contingency(cont_table_cross)
+
+print(p_value_cross)
+```
+
+Since the p-value is much higher than the significance level of 0.1, we fail to reject the null hypothesis. Therefore, we cannot conclude that there is a statistically significant relationship between cross and up. 
+
+H0: 10day is the same for days that the Tesla stock is up and down
+HA: 10day is different for days that the Tesla stock is up and down
+
+```{python}
+up_10 = data[data['up']==1]['10day'].dropna()
+down_10 = data[data['up']==0]['10day'].dropna()
+
+stat_10, p_value_10 = ttest_ind(up_10, down_10, equal_var=False)
+
+print(p_value_10)
+```
+
+Since the p-value is higher than the significance value of 0.1, we fail to reject the null hypothesis. Therefore, we cannot conclude that the 10 day moving average is different for days that the Tesla stock is up and down. 
+
+H0: 50 day is the same for days that the stock is up and down
+HA: 50 day is different for days that the stock is up and down
+
+```{python}
+up50 = data[data['up']==1]['50day'].dropna()
+down50 = data[data['up']==0]['50day'].dropna()
+
+stat_50, p_value_50 = ttest_ind(up50, down50, equal_var=False)
+
+print(p_value_50)
+```
+
+Since the p-value that we get is much higher than the significance level of 0.1, we fail to reject H0. Therefore, we cannot conclude that the 50 day is different for days that the stock is up and down. 
+
+```{python}
+import yfinance as yf
+
+sp500 = yf.download("^GSPC", start="2021-09-29", end="2022-09-29")
+
+print(sp500.head(5))
+print(sp500.columns)
+```
+
+```{python}
+sp500.columns = [col[0].lower() for col in sp500.columns]
+print(sp500.columns)
+```
+
+```{python}
+sp500.reset_index(inplace=True)
+```
+
+```{python}
+sp500['date'] = pd.to_datetime(sp500['Date'])
+print(sp500.columns)
+```
+
+```{python}
+new = pd.merge(data, sp500, on = 'date', how = 'left')
+```
+
+
+```{python}
+new['sp_up'] = (new['close_y'] - new['open_y'] > 0).astype(int)
+```
+
+
+Chi Squared test for independence. 
+
+H0: Not a statistically significant relationship between sp_up and up
+HA: Statistically significant relationship between sp_up and up
+```{python}
+from scipy.stats import chi2_contingency
+contigency_table = pd.crosstab(new['sp_up'], new['up'])
+
+chi2, p, dof, expected = chi2_contingency(contigency_table)
+
+print(p)
+```
+
+Since the p-value from the chi squared test is very low, we can reject the null hypothesis, concluding that there is a statistically significant relationship between sp_up and up. This indicates that sp_up will be a useful predictor for up. 
+
+```{python}
+print(new.columns)
+```
+
+```{python}
+delta = new['close_x'].diff()
+
+gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+
+rs = gain / loss
+rsi = 100 - (100 / (1 + rs))
+
+new['rsi'] = rsi
+```
+
+```{python}
+subset = new[['rsi', 'up']].dropna()
+def rsi_category(rsi):
+    if rsi < 30:
+        return 0  
+    elif rsi > 70:
+        return 2  
+    else:
+        return 1  
+
+subset['rsi_cat'] = subset['rsi'].apply(rsi_category)
+from scipy.stats import chi2_contingency
+
+contingency = pd.crosstab(subset['rsi_cat'], subset['up'])
+chi2, p, dof, expected = chi2_contingency(contingency)
+print("p-value:", p)
+```
+
+```{python}
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.metrics import f1_score, confusion_matrix, accuracy_score, precision_score
+from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb 
+from sklearn.linear_model import LogisticRegression
+```
+
+
+```{python}
+print(new.shape)
+```
+
+```{python}
+print(new.isna().sum())
+new.dropna(subset=['up', 'MACD_hist'], inplace=True)
+```
+
+```{python}
+print(new.isna().sum())
+```
+
+```{python}
+print(new.shape)
+```
+
+```{python}
+new['rsi_cat'] = new['rsi'].apply(lambda x: rsi_category(x) if pd.notna(x) else np.nan)
+```
+
+
+```{python}
+new.dropna(subset=['up', 'MACD_hist', 'rsi_cat'], inplace=True)
+```
+
+```{python}
+print(new.isna().sum())
+```
+
+```{python}
+fitting_data = new[['up', 'MACD_hist', 'rsi_cat']]
+original = new[['up', 'MACD_hist', 'bandwidth', '50day', '10day', 'rsi']]
+```
+
+```{python}
+def split_and_fit(data, model):
+    X = data.drop(columns = ['up'])
+    y = data['up']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=3255, test_size=0.2)
+    m = model
+    m.fit(X_train, y_train)
+    y_pred = m.predict(X_test)
+    return f1_score(y_test, y_pred), accuracy_score(y_test, y_pred), precision_score(y_test, y_pred)
+
+```
+
+```{python}
+original.dropna(subset=['up', 'MACD_hist', 'bandwidth', '50day', '10day', 'rsi'], inplace=True)
+```
+
+```{python}
+print("Support Vector Machine:", split_and_fit(fitting_data, SVC(kernel='rbf', gamma='scale', C = 1)))
+
+print("Random Forest:",split_and_fit(fitting_data, RandomForestClassifier(n_estimators=100, max_depth=5, random_state=3255)))
+
+print("Logistic Regression:", split_and_fit(fitting_data, LogisticRegression()))
+
+print("XGBoost", split_and_fit(fitting_data, xgb.XGBClassifier(n_estimators = 300, max_depth = 4)))
+```
+
+```{python}
+print("Support Vector Machine:", split_and_fit(original, SVC(kernel='rbf', gamma='scale', C = 1)))
+
+print("Random Forest:",split_and_fit(original, RandomForestClassifier(n_estimators=100, max_depth=5, random_state=3255)))
+
+print("Logistic Regression:", split_and_fit(original, LogisticRegression()))
+
+print("XGBoost", split_and_fit(original, xgb.XGBClassifier(n_estimators = 300, max_depth = 4)))
+```
+
+```{python}
+model_names = []
+f1_scores = []
+accuracy_scores = []
+precision_scores = []
+
+models = {
+    "SVM": SVC(kernel='rbf', gamma='scale', C=1), 
+    "Random Forest": RandomForestClassifier(n_estimators=100, max_depth=5, random_state=3255), 
+    "Logistic Regression": LogisticRegression(), 
+    "XGBoost": xgb.XGBClassifier(n_estimators=300, max_depth=4, use_label_encoder=False, eval_metric='logloss')
+}
+
+for name, model in models.items():
+    f1, acc, prec = split_and_fit(fitting_data, model)
+    model_names.append(name)
+    f1_scores.append(f1)
+    accuracy_scores.append(acc)
+    precision_scores.append(prec)
+```
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+
+bar_width = 0.25
+x = np.arange(len(model_names))
+
+plt.figure(figsize=(10, 6))
+plt.bar(x - bar_width, f1_scores, width=bar_width, label='F1 Score')
+plt.bar(x, accuracy_scores, width=bar_width, label='Accuracy')
+plt.bar(x + bar_width, precision_scores, width=bar_width, label='Precision')
+
+plt.xticks(x, model_names)
+plt.ylabel('Score')
+plt.ylim(0, 1)
+plt.title('ML Model Performance Comparison')
+plt.legend()
+plt.grid(axis='y', linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+X = fitting_data.drop(columns = ['up'])
+y = fitting_data['up']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=3255, test_size=.2)
+
+```
+
+```{python}
+models = {
+    "SVM": SVC(kernel='rbf', gamma='scale', C=1),
+    "Random Forest": RandomForestClassifier(n_estimators=100, max_depth=3, random_state=3255),
+    "Logistic Regression": LogisticRegression(max_iter=1000),
+    "XGBoost": xgb.XGBClassifier(n_estimators=300, max_depth=4, use_label_encoder=False, eval_metric='logloss')
+}
+X = fitting_data.drop(columns=['up'])
+y = fitting_data['up']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=3255, test_size=0.2)
+results = []
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    train_pred = model.predict(X_train)
+    test_pred = model.predict(X_test)
+    
+    train_acc = accuracy_score(y_train, train_pred)
+    test_acc = accuracy_score(y_test, test_pred)
+    
+    results.append((name, train_acc, test_acc))
+print("{:<20} {:<15} {:<15}".format('Model', 'Train Accuracy', 'Test Accuracy'))
+for name, train_acc, test_acc in results:
+    print("{:<20} {:.4f}          {:.4f}".format(name, train_acc, test_acc))
+```
+
+```{python}
+print(new['up'].value_counts(normalize=True))
+```
+
+
+```{python}
+import joblib
+
+model = SVC(kernel='rbf', gamma='scale', C=1)
+model.fit(X_train, y_train)
+
+joblib.dump(model, 'svm_model.joblib')
+```
+
+```{python}
+import boto3
+
+s3 = boto3.client('s3')
+bucket_name = 'sagemaker-models-shubhan-1'
+
+s3.upload_file('svm_model.tar.gz', bucket_name, 'models/svm_model.tar.gz')
+
 ```
