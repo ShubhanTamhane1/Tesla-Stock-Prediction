@@ -7,13 +7,13 @@ The goal is to classify whether the stock price will go **up** or **down** based
 ---
 
 ## Features
-- 📊 Data preprocessing & feature engineering
-- 🤖 Multiple ML models:
+- Data preprocessing & feature engineering
+- Multiple ML models:
   - Logistic Regression
   - Random Forest
   - Support Vector Machine (SVM)
   - XGBoost
-- 📈 Model evaluation using:
+- Model evaluation using:
   - Accuracy
   - Precision
   - F1-score
