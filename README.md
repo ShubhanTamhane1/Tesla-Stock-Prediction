@@ -17,7 +17,41 @@ The goal is to classify whether the stock price will go **up** or **down** based
   - Accuracy
   - Precision
   - F1-score
-- ☁️ Deployment pipeline with AWS SageMaker
+- Deployment pipeline with AWS SageMaker
 
 ---
+
+## Technologies Used
+- **Programming Language**: Python
+- Tools and Libraries:
+- Visual Studio Code
+- Quarto
+- Pandas
+- NumPy
+- Sci-kit Learn
+- Matplotlib
+- Seaborn
+- Streamlit
+- AWS SageMaker
+
+## Dataset 
+- Target: Tesla Stock up or down
+- MACD Hist
+- Bollinger Bands
+- 10/50 Day Moving Averages
+- RSI
+- S&P 500
+
+
+
+
+
+
+
+
+
+
+
+
+
 
